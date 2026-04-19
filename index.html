@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WSS.APP - المشرف</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root {
+            --primary: #25D366;
+            --primary-dark: #075E54;
+            --secondary: #128C7E;
+            --accent: #1e90ff;
+            --bg: #f5f7fb;
+            --card-bg: #ffffff;
+            --text-main: #333;
+            --text-muted: #666;
+            --danger: #ff4757;
+            --warning: #ffa502;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Tajawal', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); padding-bottom: 75px; color: var(--text-main); overflow-x: hidden; }
+
+        #loginPage {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--secondary) 100%);
+            display: flex; align-items: center; justify-content: center; z-index: 10000;
+        }
+        .login-card { background: transparent; border-radius: 30px; padding: 20px; width: 90%; max-width: 400px; text-align: center; position: relative; }
+        .welcome-anim-container { font-size: 40px; font-weight: 800; color: white; height: 60px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; text-shadow: 0 4px 10px rgba(0,0,0,0.2); direction: ltr; unicode-bidi: bidi-override; }
+        .welcome-letter { display: inline-block; opacity: 0; transform: translateY(20px); transition: 0.3s; }
+        .welcome-letter.show { opacity: 1; transform: translateY(0); }
+        .welcome-letter.hide { opacity: 0; transform: scale(0.5); }
+
+        .login-form { display: none; animation: fadeIn 0.5s forwards; background: white; padding: 30px 20px; border-radius: 25px; box-shadow: 0 15px 40px rgba(0,0,0,0.2); }
+        .login-input-group { position: relative; margin: 15px 0; }
+        .login-input { width: 100%; padding: 12px 12px 12px 40px; border: 2px solid #e0e0e0; border-radius: 15px; font-size: 15px; outline: none; transition: 0.3s; text-align: right; }
+        .login-input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 211, 102, 0.1); }
+        .login-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #aaa; font-size: 16px; }
+        .pass-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #aaa; z-index: 10; }
+        .login-btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 15px; font-size: 16px; font-weight: bold; margin-top: 10px; cursor: pointer; transition: 0.3s; }
+        .login-btn:hover { background: #1ebe57; transform: translateY(-2px); }
+
+        .app-container { display: none; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .header { background: white; padding: 12px 15px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .header-top { display: flex; justify-content: space-between; align-items: center; }
+        .logo-area h1 { color: var(--primary-dark); font-size: 18px; font-weight: 800; }
+        .logo-area p { font-size: 10px; color: var(--text-muted); }
+        
+        .user-info { display: flex; align-items: center; gap: 8px; }
+        .badge { padding: 3px 8px; border-radius: 15px; font-size: 10px; font-weight: 700; }
+        .user-badge { background: #e3f2fd; color: #1976d2; }
+        
+        .notification-icon { position: relative; cursor: pointer; font-size: 18px; color: #555; }
+        .notification-badge { position: absolute; top: -5px; right: -5px; background: var(--danger); color: white; border-radius: 50%; padding: 1px 4px; font-size: 8px; min-width: 14px; text-align: center; border: 1.5px solid white; display: none; }
+
+        .notification-toast {
+            position: fixed; top: 20px; right: 20px; background: white; border-radius: 15px; padding: 15px 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15); z-index: 5000; max-width: 350px;
+            animation: slideInNotif 0.5s ease forwards; border-right: 4px solid var(--primary);
+            word-wrap: break-word; overflow-wrap: break-word;
+        }
+        @keyframes slideInNotif { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOutNotif { from { transform: translateX(0); opacity: 1; } to { transform: translateX(400px); opacity: 0; } }
+        .notification-toast.slide-out { animation: slideOutNotif 0.5s ease forwards; }
+        .notification-toast.broadcast-notification { border-right: 4px solid var(--danger); background: #fff5f5; }
+        .notification-toast.broadcast-notification .notif-title { color: var(--danger); font-weight: 900; font-size: 14px; }
+        .notification-toast.broadcast-notification .notif-message { color: var(--danger); font-weight: 700; font-size: 13px; }
+        .notification-toast.broadcast-notification .notif-icon { color: var(--danger); }
+        .notif-content { display: flex; gap: 10px; align-items: flex-start; }
+        .notif-icon { font-size: 20px; color: var(--primary); flex-shrink: 0; }
+        .notif-text { flex: 1; }
+        .notif-title { font-weight: 800; font-size: 13px; color: var(--primary-dark); margin-bottom: 3px; }
+        .notif-message { font-size: 12px; color: #666; line-height: 1.4; }
+        .notif-time { font-size: 10px; color: #aaa; margin-top: 5px; }
+        .notif-close { background: none; border: none; font-size: 16px; cursor: pointer; color: #aaa; padding: 0; margin-left: 10px; }
+        .notif-close:hover { color: #333; }
+
+        .notification-popup {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 20px; padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 6000; max-width: 400px; width: 90%; max-height: 80vh; overflow-y: auto; display: none; animation: popupShow 0.3s ease;
+        }
+        @keyframes popupShow { from { transform: translate(-50%, -50%) scale(0.8); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+        .notification-popup.show { display: block; }
+        .notification-popup-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 5999; display: none; }
+        .notification-popup-overlay.show { display: block; }
+        .popup-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .popup-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #aaa; }
+        .popup-close:hover { color: #333; }
+        .popup-body { font-size: 13px; line-height: 1.8; color: #555; }
+
+        .action-buttons { display: flex; gap: 6px; padding: 10px 12px; background: white; border-bottom: 1px solid #eee; overflow-x: hidden; }
+        .action-btn { flex: 1; padding: 8px 4px; border: none; border-radius: 10px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 10px; transition: 0.3s; white-space: nowrap; }
+        .btn-report { background: var(--primary); color: white; }
+        .btn-chat { background: var(--accent); color: white; }
+        .btn-note { background: #f39c12; color: white; }
+
+        .tabs-container { background: white; padding: 8px 12px; display: flex; gap: 6px; border-bottom: 1px solid #eee; overflow-x: auto; scrollbar-width: none; }
+        .tabs-container::-webkit-scrollbar { display: none; }
+        .tab-btn { padding: 6px 14px; background: #f0f2f5; border: none; border-radius: 15px; cursor: pointer; font-weight: 700; white-space: nowrap; color: #666; transition: 0.3s; font-size: 11px; }
+        .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 3px 6px rgba(37, 211, 102, 0.2); }
+
+        .search-bar { padding: 8px 12px; background: white; }
+        .search-input { width: 100%; padding: 8px 15px; border: 1px solid #eee; border-radius: 20px; font-size: 12px; background: #f8f9fa; outline: none; }
+        
+        .card { background: white; margin: 8px 12px; padding: 14px; border-radius: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); border-right: 4px solid var(--primary); transition: 0.3s; position: relative; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .card-title { font-weight: 800; font-size: 14px; color: var(--primary-dark); }
+        .card-amount { font-weight: 900; font-size: 16px; color: var(--primary); }
+        .card-sub { font-size: 10px; color: var(--text-muted); margin-bottom: 8px; }
+        
+        .member-info-section { background: #f8f9fa; border-radius: 10px; padding: 10px; margin-top: 5px; }
+        .member-info-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .member-info-row:last-child { margin-bottom: 0; }
+        .member-info-label { font-size: 10px; color: #888; }
+        .member-info-value { font-size: 11px; font-weight: 700; }
+        .goal-value { color: var(--accent); }
+        .difference-value { color: var(--danger); }
+        .difference-value.achieved { color: var(--primary); }
+        
+        .ref-actions { display: flex; gap: 6px; margin-top: 10px; border-top: 1px solid #f0f0f0; padding-top: 10px; }
+        .ref-btn { flex: 1; padding: 6px; border: none; border-radius: 8px; font-size: 9px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: 0.2s; }
+        .ref-btn-view { background: #e3f2fd; color: #1976d2; }
+        .ref-btn-wa { background: #e8f5e9; color: #2e7d32; }
+        .ref-btn-copy { background: #f5f5f5; color: #616161; }
+        .ref-btn-note { background: #f3e5f5; color: #7b1fa2; }
+        
+        .status-badge { padding: 3px 8px; border-radius: 10px; font-size: 9px; font-weight: 800; }
+        .status-pending { background: #fff3e0; color: #e65100; }
+        .status-approved { background: #e8f5e9; color: #2e7d32; }
+        .status-rejected { background: #ffeea4; color: #c62828; }
+        
+        .chat-window { height: 350px; overflow-y: auto; padding: 15px; background: #efe7dd; display: flex; flex-direction: column; gap: 10px; }
+        .chat-bubble { max-width: 80%; padding: 8px 12px; border-radius: 15px; font-size: 13px; position: relative; line-height: 1.4; word-wrap: break-word; }
+        .chat-mine { align-self: flex-end; background: #dcf8c6; border-bottom-right-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .chat-other { align-self: flex-start; background: white; border-bottom-left-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .chat-info { font-size: 9px; color: #888; margin-top: 4px; display: flex; justify-content: space-between; }
+        
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; backdrop-filter: blur(4px); }
+        .modal-content { background: white; border-radius: 25px; padding: 20px; width: 100%; max-width: 450px; position: relative; animation: slideUp 0.3s ease; max-height: 90vh; overflow-y: auto; }
+        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .close-modal { position: absolute; top: 15px; left: 15px; background: #f0f0f0; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 18px; color: #666; display: flex; align-items: center; justify-content: center; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 12px; font-weight: 700; color: #555; margin-bottom: 8px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 15px; border: 1.5px solid #eee; border-radius: 12px; font-size: 13px; outline: none; transition: 0.3s; background: #fcfcfc; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary); background: white; }
+        
+        .member-row { display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #f5f5f5; gap: 8px; }
+        .member-row:last-child { border-bottom: none; }
+        
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 15px rgba(0,0,0,0.08); z-index: 900; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #aaa; text-decoration: none; font-size: 10px; font-weight: 700; cursor: pointer; transition: 0.3s; }
+        .nav-item.active { color: var(--primary); }
+        .nav-item i { font-size: 20px; }
+
+        .empty-state { text-align: center; padding: 40px 20px; color: #999; font-size: 13px; }
+        .toast { position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 8px 20px; border-radius: 20px; font-size: 12px; z-index: 2000; animation: fadeIn 0.3s; }
+
+        .custom-dialog { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 20px; backdrop-filter: blur(5px); }
+        .custom-dialog-content { background: white; border-radius: 30px; padding: 30px 25px; width: 100%; max-width: 380px; text-align: center; animation: zoomIn 0.3s ease; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+        @keyframes zoomIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .custom-dialog-icon { font-size: 50px; margin-bottom: 15px; }
+        .custom-dialog-icon.success { color: var(--primary); }
+        .custom-dialog-icon.error { color: var(--danger); }
+        .custom-dialog-icon.warning { color: var(--warning); }
+        .custom-dialog-icon.info { color: var(--accent); }
+        .custom-dialog-title { font-size: 18px; font-weight: 800; color: var(--primary-dark); margin-bottom: 10px; }
+        .custom-dialog-message { font-size: 14px; color: #666; margin-bottom: 20px; line-height: 1.6; }
+        .custom-dialog-buttons { display: flex; gap: 10px; }
+        .custom-dialog-btn { flex: 1; padding: 12px; border: none; border-radius: 15px; font-weight: 700; font-size: 14px; cursor: pointer; transition: 0.2s; }
+        .custom-dialog-btn-primary { background: var(--primary); color: white; }
+        .custom-dialog-btn-secondary { background: #f0f0f0; color: #666; }
+        .custom-dialog-btn:active { transform: scale(0.95); }
+
+        .note-card { background: white; border-radius: 15px; padding: 12px; margin-bottom: 10px; border-right: 4px solid #f39c12; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .note-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .note-title { font-weight: 800; font-size: 13px; color: var(--primary-dark); }
+        .note-time { font-size: 9px; color: #999; }
+        .note-body { font-size: 12px; color: #555; line-height: 1.5; margin-bottom: 8px; }
+        .note-actions { display: flex; gap: 8px; border-top: 1px solid #f9f9f9; padding-top: 8px; }
+        .note-btn { flex: 1; padding: 5px; border: none; border-radius: 8px; font-size: 10px; font-weight: 700; cursor: pointer; }
+        .note-btn-edit { background: #fff3e0; color: #e65100; }
+        .note-btn-del { background: #ffebee; color: #c62828; }
+
+        .notifications-container { max-height: 400px; overflow-y: auto; margin-bottom: 15px; }
+        .notification-item { padding: 12px; border-bottom: 1px solid #f5f5f5; cursor: pointer; transition: 0.2s; border-radius: 10px; margin-bottom: 5px; }
+        .notification-item:hover { background: #f9f9f9; }
+        .notification-item.unread { background: #edf2fa; border-right: 3px solid var(--accent); }
+        .notification-item-title { font-weight: 800; font-size: 13px; margin-bottom: 4px; color: var(--primary-dark); }
+        .notification-item-msg { font-size: 11px; color: #666; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .notification-item-time { font-size: 9px; color: #aaa; margin-top: 5px; text-align: left; }
+        .load-more-btn { width: 100%; padding: 10px; background: #f0f2f5; border: none; border-radius: 12px; color: #666; font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 10px; }
+
+        @media (max-width: 600px) {
+            .login-card { padding: 15px; }
+            .welcome-anim-container { font-size: 35px; }
+            .login-form { padding: 25px 15px; }
+            .header { padding: 10px 12px; }
+            .logo-area h1 { font-size: 16px; }
+            .logo-area p { font-size: 9px; }
+            .action-btn { flex: 1; min-width: 100px; padding: 8px 6px; font-size: 9px; gap: 3px; }
+            .tabs-container { padding: 6px 10px; gap: 4px; }
+            .tab-btn { padding: 5px 12px; font-size: 10px; }
+            .search-bar { padding: 6px 10px; }
+            .search-input { padding: 6px 12px; font-size: 11px; }
+            .card { margin: 6px 10px; padding: 12px; border-radius: 12px; }
+            .card-title { font-size: 13px; }
+            .card-amount { font-size: 14px; }
+            .card-sub { font-size: 9px; }
+            .member-info-section { padding: 8px; font-size: 10px; }
+            .member-info-row { margin-bottom: 4px; }
+            .member-info-label { font-size: 9px; }
+            .member-info-value { font-size: 10px; }
+            .status-badge { font-size: 8px; padding: 2px 6px; }
+            .ref-actions { gap: 4px; margin-top: 6px; padding-top: 6px; }
+            .ref-btn { min-width: 40px; padding: 5px; font-size: 8px; gap: 2px; }
+            .chat-window { height: 300px; padding: 10px; }
+            .chat-bubble { font-size: 12px; padding: 6px 10px; }
+            .modal-content { padding: 15px; max-height: 90vh; }
+            .close-modal { width: 28px; height: 28px; font-size: 16px; }
+            .form-group { margin-bottom: 10px; }
+            .form-group label { font-size: 11px; margin-bottom: 5px; }
+            .form-group input, .form-group select, .form-group textarea { padding: 8px; font-size: 12px; }
+            .custom-dialog-content { padding: 20px 18px; max-width: 90%; }
+            .custom-dialog-icon { font-size: 40px; margin-bottom: 12px; }
+            .custom-dialog-title { font-size: 16px; margin-bottom: 8px; }
+            .custom-dialog-message { font-size: 13px; margin-bottom: 15px; }
+            .custom-dialog-btn { padding: 9px; font-size: 12px; }
+            .notification-toast { right: 10px; left: 10px; max-width: none; padding: 12px 15px; font-size: 12px; }
+            .notif-title { font-size: 12px; }
+            .notif-message { font-size: 11px; }
+            .notif-icon { font-size: 18px; }
+            .notif-close { font-size: 14px; margin-left: 8px; }
+            .note-card { padding: 10px; margin-bottom: 6px; }
+            .note-title { font-size: 12px; }
+            .note-time { font-size: 8px; }
+            .note-body { font-size: 10px; }
+            .note-btn { padding: 3px 6px; font-size: 9px; }
+            .nav-item { font-size: 8px; }
+            .nav-item i { font-size: 16px; margin-bottom: 1px; }
+            .notifications-container { max-height: 70vh; }
+            .notification-item { padding: 10px; margin-bottom: 6px; }
+            .load-more-btn { padding: 8px; font-size: 11px; margin-top: 8px; }
+            .login-card { padding: 15px; width: 95%; }
+            .welcome-anim-container { font-size: 32px; height: 50px; margin-bottom: 15px; }
+            .login-form { padding: 20px 15px; }
+            .login-input-group { margin: 12px 0; }
+            .login-input { padding: 10px 10px 10px 35px; font-size: 14px; }
+            .login-btn { padding: 10px; font-size: 14px; }
+            .member-row { padding: 6px; margin-bottom: 5px; flex-wrap: wrap; }
+            .member-row input, .member-row select { padding: 4px; font-size: 10px; margin: 2px; }
+        }
+
+        @media (max-width: 480px) {
+            body { padding-bottom: 70px; }
+            .header { padding: 8px 10px; }
+            .logo-area h1 { font-size: 14px; }
+            .logo-area p { font-size: 8px; }
+            .action-buttons { padding: 6px 8px; gap: 4px; }
+            .action-btn { min-width: 80px; padding: 6px 4px; font-size: 8px; }
+            .tabs-container { padding: 5px 8px; gap: 3px; }
+            .tab-btn { padding: 4px 10px; font-size: 9px; }
+            .card { margin: 5px 8px; padding: 10px; }
+            .card-title { font-size: 12px; }
+            .card-amount { font-size: 13px; }
+            .member-info-section { padding: 6px; font-size: 9px; }
+            .member-info-row { margin-bottom: 4px; }
+            .member-info-label { font-size: 8px; }
+            .member-info-value { font-size: 9px; }
+            .ref-actions { gap: 3px; }
+            .ref-btn { min-width: 35px; padding: 4px; font-size: 7px; }
+            .chat-window { height: 250px; }
+            .chat-bubble { font-size: 11px; padding: 5px 8px; }
+            .modal-content { padding: 12px; }
+            .form-group input, .form-group select, .form-group textarea { padding: 6px; font-size: 11px; }
+            .custom-dialog-content { padding: 15px 12px; }
+            .custom-dialog-icon { font-size: 35px; }
+            .custom-dialog-title { font-size: 14px; }
+            .custom-dialog-message { font-size: 12px; }
+            .notification-toast { right: 8px; left: 8px; padding: 10px 12px; }
+            .notif-title { font-size: 11px; }
+            .notif-message { font-size: 10px; }
+            .note-card { padding: 8px; }
+            .note-title { font-size: 11px; }
+            .note-body { font-size: 9px; }
+            .welcome-anim-container { font-size: 28px; }
+            .login-form { padding: 15px 12px; }
+            .login-input { padding: 8px 8px 8px 32px; font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="loginPage">
+        <div class="login-card">
+            <div id="welcomeAnim" class="welcome-anim-container"></div>
+            <form class="login-form" id="loginForm" onsubmit="handleLogin(); return false;">
+                <div class="login-input-group">
+                    <i class="fas fa-user login-icon"></i>
+                    <input type="text" id="loginUsername" class="login-input" placeholder="اسم المستخدم" required>
+                </div>
+                <div class="login-input-group">
+                    <i class="fas fa-lock login-icon"></i>
+                    <input type="password" id="loginPassword" class="login-input" placeholder="كلمة المرور" required>
+                    <i class="fas fa-eye pass-toggle" id="togglePass" onclick="togglePasswordVisibility()"></i>
+                </div>
+                <button type="submit" class="login-btn" id="loginSubmitBtn">دخول</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="mainApp" class="app-container">
+        <div class="header">
+            <div class="header-top">
+                <div class="logo-area">
+                    <h1>WSS.APP <span style="font-size: 10px; background: var(--primary); color: white; padding: 2px 6px; border-radius: 10px;">PRO</span></h1>
+                    <p id="headerGroupName">المجموعة</p>
+                </div>
+                <div class="user-info">
+                    <div class="notification-icon" onclick="openNotificationsPanel()">
+                        <i class="fas fa-bell"></i>
+                        <span id="notifBadge" class="notification-badge">0</span>
+                    </div>
+                    <div class="badge user-badge" id="headerUserName">المشرف</div>
+                    <div class="notification-icon" onclick="logout()" style="color: var(--danger); margin-right: 10px;">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="action-btn btn-report" onclick="openReportModal()"><i class="fas fa-plus-circle"></i> إنشاء تقرير</button>
+            <button class="action-btn btn-chat" onclick="openChat()"><i class="fas fa-comments"></i> الدردشة الجماعية</button>
+            <button class="action-btn btn-note" onclick="switchTab('notebook')"><i class="fas fa-book"></i> المفكرة</button>
+        </div>
+
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="switchTab('members')">الأعضاء</button>
+            <button class="tab-btn" onclick="switchTab('reports')">التقارير</button>
+            <button class="tab-btn" onclick="switchTab('requests')">الطلبات</button>
+            <button class="tab-btn" onclick="switchTab('notes')">الملاحظات</button>
+        </div>
+
+        <div class="search-bar">
+            <input type="text" class="search-input" id="searchInput" placeholder="بحث..." oninput="handleSearch(this.value)">
+        </div>
+
+        <div id="contentArea"></div>
+
+        <div class="bottom-nav">
+            <div class="nav-item active" onclick="switchTab('members')"><i class="fas fa-users"></i><span>الأعضاء</span></div>
+            <div class="nav-item" onclick="switchTab('reports')"><i class="fas fa-file-alt"></i><span>التقارير</span></div>
+            <div class="nav-item" onclick="switchTab('requests')"><i class="fas fa-paper-plane"></i><span>الطلبات</span></div>
+            <div class="nav-item" onclick="switchTab('notes')"><i class="fas fa-sticky-note"></i><span>الملاحظات</span></div>
+        </div>
+    </div>
+
+    <div id="reportModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('reportModal')"><i class="fas fa-times"></i></button>
+            <h2 style="color:var(--primary-dark); margin-bottom:15px; text-align:center; font-size:18px;">إنشاء تقرير يومي</h2>
+            <div class="form-group"><label>تاريخ التقرير</label><input type="date" id="reportDate"></div>
+            <div class="form-group"><label>عدد المهام الكلي</label><input type="number" id="reportMaxTasks" placeholder="أدخل العدد الكلي"></div>
+            <div class="form-group"><label>إرفاق ملاحظة (اختياري)</label><textarea id="reportNote" rows="2" placeholder="ملاحظة..."></textarea></div>
+            <div style="margin:15px 0; border-top:1px solid #eee; padding-top:10px;"><h4 style="margin-bottom:8px; font-size:13px;">تحديث المهام / الروابط:</h4><div id="reportMembersList" style="max-height:300px; overflow-y:auto; border:1px solid #f0f0f0; border-radius:12px;"></div></div>
+            <button class="login-btn" id="submitReportBtn" onclick="submitReport()">حفظ وإرسال التقرير</button>
+        </div>
+    </div>
+
+    <div id="requestModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('requestModal')"><i class="fas fa-times"></i></button>
+            <h2 style="color:var(--primary-dark); margin-bottom:15px; text-align:center; font-size:18px;">طلب عملية خاصة</h2>
+            <div class="form-group"><label>اسم العضو</label><input type="text" id="reqMemberName" readonly></div>
+            <div class="form-group"><label>نوع العملية</label><select id="reqType"><option value="add">إضافة قيمة</option><option value="subtract">خصم قيمة</option></select></div>
+            <div class="form-group"><label>القيمة</label><input type="number" id="reqAmount" placeholder="أدخل الرقم" value="" min="-999999" max="999999"></div>
+            <div class="form-group"><label>السبب</label><textarea id="reqReason" rows="2"></textarea></div>
+            <button class="login-btn" id="submitRequestBtn" onclick="submitSpecialRequest()">إرسال الطلب للإدارة</button>
+        </div>
+    </div>
+
+    <div id="memberNoteModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('memberNoteModal')"><i class="fas fa-times"></i></button>
+            <h2 style="color:#7b1fa2; margin-bottom:15px; text-align:center; font-size:18px;">إضافة ملاحظة</h2>
+            <div class="form-group"><label>اسم العضو</label><input type="text" id="noteMemberName" readonly></div>
+            <div class="form-group"><label>نوع الملاحظة</label><select id="noteType"><option value="">اختر نوع الملاحظة</option><option value="مخالفة">مخالفة</option><option value="مكافأة">مكافأة</option><option value="أخرى">أخرى</option></select></div>
+            <div class="form-group"><label>السبب / التفاصيل</label><textarea id="noteDetails" rows="3" placeholder="اشرح تفاصيل الملاحظة..."></textarea></div>
+            <button class="login-btn" style="background:#7b1fa2;" id="submitNoteBtn" onclick="submitMemberNote()">تقديم الملاحظة</button>
+        </div>
+    </div>
+
+    <div id="detailsModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('detailsModal')"><i class="fas fa-times"></i></button>
+            <div id="detailsContent"></div>
+            <div style="display:flex; gap:10px; margin-top:15px;"><button class="login-btn" style="flex:1;" id="shareReportBtn"><i class="fab fa-whatsapp"></i> مشاركة</button><button class="login-btn" style="flex:1; background:#555;" onclick="printContent()"><i class="fas fa-print"></i> طباعة</button></div>
+        </div>
+    </div>
+
+    <div id="chatModal" class="modal">
+        <div class="modal-content" style="padding:0; overflow:hidden; display:flex; flex-direction:column; height:80vh;">
+            <div style="background:var(--primary-dark); color:white; padding:12px; display:flex; justify-content:space-between; align-items:center;">
+                <strong><i class="fas fa-comments"></i> الدردشة الجماعية</strong>
+                <button class="close-modal" style="background:transparent; color:white; position:static;" onclick="closeModal('chatModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="chatBox" class="chat-window" style="flex:1;"></div>
+            <div style="padding:10px; background:white; border-top:1px solid #eee; display:flex; gap:8px;">
+                <input type="text" id="chatInput" style="flex:1; padding:10px; border:1px solid #ddd; border-radius:20px; outline:none; font-size:13px;" placeholder="اكتب رسالتك...">
+                <button onclick="sendChatMessage()" style="background:var(--primary); color:white; border:none; width:40px; height:40px; border-radius:50%; cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notificationsModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('notificationsModal')"><i class="fas fa-times"></i></button>
+            <h2 style="color:var(--primary-dark); margin-bottom:15px; font-size:18px;">التعاميم والإشعارات</h2>
+            <div id="notifList" class="notifications-container"></div>
+            <button class="load-more-btn" id="loadMoreNotifBtn" onclick="loadMoreNotifications()" style="display:none;">المزيد</button>
+        </div>
+    </div>
+
+    <div id="noteEditModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('noteEditModal')"><i class="fas fa-times"></i></button>
+            <h2 id="noteModalTitle" style="color:#f39c12; margin-bottom:15px; font-size:18px;">المذكرة الشخصية</h2>
+            <input type="hidden" id="editNoteId">
+            <div class="form-group"><label>العنوان</label><input type="text" id="noteTitle"></div>
+            <div class="form-group"><label>المحتوى</label><textarea id="noteContent" rows="3"></textarea></div>
+            <div class="form-group"><label>تنبيه</label><input type="datetime-local" id="noteReminder"></div>
+            <button class="login-btn" style="background:#f39c12;" onclick="saveNote()">حفظ</button>
+        </div>
+    </div>
+
+    <div class="notification-popup-overlay" id="notificationPopupOverlay" onclick="closeNotificationPopup()"></div>
+    <div class="notification-popup" id="notificationPopup">
+        <div class="popup-header"><h3 style="color: var(--primary-dark); font-size: 16px; margin: 0;">تفاصيل الإشعار</h3><button class="popup-close" onclick="closeNotificationPopup()"><i class="fas fa-times"></i></button></div>
+        <div class="popup-body" id="popupContent"></div>
+    </div>
+
+    <div id="customDialog" class="custom-dialog"><div class="custom-dialog-content"><div id="dialogIcon" class="custom-dialog-icon"></div><h2 id="dialogTitle" class="custom-dialog-title"></h2><p id="dialogMessage" class="custom-dialog-message"></p><div id="dialogButtons" class="custom-dialog-buttons"></div></div></div>
+
+    <div id="printContent" style="display:none; padding:20px; background:white; font-family:Arial, sans-serif;"></div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBfrCa0Y2g3KzTGUu28c00uX4EHnS68S4s",
+            authDomain: "wateensys.firebaseapp.com",
+            projectId: "wateensys",
+            storageBucket: "wateensys.firebasestorage.app",
+            messagingSenderId: "338135983897",
+            appId: "1:338135983897:web:8b2fb07522aa29ec754788",
+            measurementId: "G-XQV3Z2TXTF"
+        };
+
+        let db;
+        try { 
+            if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); 
+            db = firebase.firestore(); 
+            db.settings({ ignoreUndefinedProperties: true }); 
+        } catch (e) { console.error(e); }
+
+        let currentUser = null, members = [], reports = [], requests = [], memberNotes = [], chats = [], allNotifications = [], myNotes = JSON.parse(localStorage.getItem('wss_notes') || '[]');
+        let currentTab = 'members', searchTerm = '', unsubscribeFunctions = [], isProcessing = false, selectedMemberForReq = null, selectedMemberForNote = null;
+        let notificationOffset = 0, notificationsPerPage = 10, lastNotificationCount = 0;
+
+        document.addEventListener('DOMContentLoaded', () => { runWelcomeAnimation(); checkAutoLogin(); startReminderCheck(); });
+
+        function runWelcomeAnimation() {
+            const container = document.getElementById('welcomeAnim'), text = "Welcome";
+            container.innerHTML = text.split('').map(l => `<span class="welcome-letter" style="direction: ltr; unicode-bidi: bidi-override;">${l}</span>`).join('');
+            const letters = document.querySelectorAll('.welcome-letter');
+            letters.forEach((l, i) => setTimeout(() => l.classList.add('show'), i * 150));
+            setTimeout(() => {
+                letters.forEach((l, i) => setTimeout(() => l.classList.add('hide'), i * 100));
+                setTimeout(() => { container.style.display = 'none'; document.getElementById('loginForm').style.display = 'block'; }, letters.length * 100 + 500);
+            }, 2500);
+        }
+
+        function togglePasswordVisibility() { 
+            const pass = document.getElementById('loginPassword'), eye = document.getElementById('togglePass'); 
+            const isPass = pass.type === 'password'; 
+            pass.type = isPass ? 'text' : 'password'; 
+            eye.classList.replace(isPass ? 'fa-eye' : 'fa-eye-slash', isPass ? 'fa-eye-slash' : 'fa-eye'); 
+        }
+        
+        function checkAutoLogin() { 
+            const saved = localStorage.getItem('wateen_supervisor'); 
+            if (saved) { 
+                try { currentUser = JSON.parse(saved); initApp(); } 
+                catch(e) { localStorage.removeItem('wateen_supervisor'); } 
+            } 
+        }
+        
+        async function handleLogin() {
+            const user = document.getElementById('loginUsername').value.trim(), pass = document.getElementById('loginPassword').value.trim();
+            if(!user || !pass) return showCustomDialog('تنبيه', 'يرجى إدخال البيانات', 'warning', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]);
+            toggleLoading('loginSubmitBtn', true);
+            try {
+                const snap = await db.collection('users').where('username', '==', user).where('password', '==', pass).where('type', '==', 'supervisor').get();
+                if(snap.empty) { showCustomDialog('خطأ', 'خطأ في البيانات', 'error', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]); }
+                else { currentUser = { id: snap.docs[0].id, ...snap.docs[0].data() }; localStorage.setItem('wateen_supervisor', JSON.stringify(currentUser)); initApp(); }
+            } catch(e) { showCustomDialog('خطأ', 'فشل الاتصال', 'error', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]); }
+            toggleLoading('loginSubmitBtn', false);
+        }
+        
+        function initApp() { 
+            document.getElementById('loginPage').style.display = 'none'; 
+            document.getElementById('mainApp').style.display = 'block'; 
+            document.getElementById('headerUserName').innerText = currentUser.name; 
+            document.getElementById('headerGroupName').innerText = currentUser.groupName || 'المجموعة'; 
+            setupListeners(); 
+            switchTab('members'); 
+        }
+        
+        function logout() { 
+            showCustomDialog('تأكيد', 'هل تريد تسجيل الخروج؟', 'info', [
+                { text: 'إلغاء', callback: () => { closeCustomDialog(); } }, 
+                { text: 'خروج', callback: () => { 
+                    unsubscribeFunctions.forEach(u => u()); 
+                    localStorage.removeItem('wateen_supervisor'); 
+                    localStorage.removeItem('saved_requests'); 
+                    document.getElementById('loginPage').style.display = 'flex'; 
+                    document.getElementById('mainApp').style.display = 'none'; 
+                    closeCustomDialog(); 
+                    setTimeout(() => { location.reload(); }, 500); 
+                }, isPrimary: true }
+            ]); 
+        }
+        
+        function setupListeners() {
+            if(!db) return;
+            
+            // استماع للأعضاء
+            unsubscribeFunctions.push(db.collection('members').where('groupId', '==', currentUser.groupId).onSnapshot(snap => { 
+                members = snap.docs.map(doc => { const data = doc.data(); return { id: doc.id, ...data, target: data.target || 0, wallet: data.wallet || 0, name: data.name || '', phone: data.phone || '' }; }); 
+                if(currentTab === 'members') renderMembers(); 
+            }));
+            
+            // استماع للتقارير
+            unsubscribeFunctions.push(db.collection('dailyReports').orderBy('createdAt', 'desc').onSnapshot(snap => { 
+                const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
+                reports = all.filter(r => r.supervisorId === currentUser.id || r.group === currentUser.groupName); 
+                if(currentTab === 'reports') renderReports(); 
+            }));
+            
+            // استماع للطلبات
+            unsubscribeFunctions.push(db.collection('specialRequests').orderBy('createdAt', 'desc').onSnapshot(snap => { 
+                const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
+                requests = all.filter(r => r.supervisorId === currentUser.id); 
+                checkForRequestStatusChanges(all.filter(r => r.supervisorId === currentUser.id)); 
+                if(currentTab === 'requests') renderRequests(); 
+            }));
+            
+            // استماع لملاحظات الأعضاء
+            unsubscribeFunctions.push(db.collection('memberNotes').orderBy('createdAt', 'desc').onSnapshot(snap => { 
+                const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
+                memberNotes = all.filter(n => n.supervisorId === currentUser.id); 
+                if(currentTab === 'notes') renderMemberNotes(); 
+            }));
+            
+            // استماع للرسائل (الدردشة) - تم إصلاحه
+            unsubscribeFunctions.push(db.collection('chats').where('groupId', '==', currentUser.groupId).orderBy('timestamp', 'asc').onSnapshot(snap => { 
+                chats = snap.docs.map(doc => ({ id: doc.id, ...doc.data(), timestamp: doc.data().timestamp || Date.now() })); 
+                renderChatMessages(); 
+                // إظهار إشعار عند وصول رسالة جديدة من شخص آخر
+                if(window.chatModalOpen && snap.docChanges().some(c => c.type === 'added' && c.doc.data().senderId !== currentUser.id)) {
+                    const lastMsg = snap.docs[snap.docs.length-1]?.data();
+                    if(lastMsg && lastMsg.senderId !== currentUser.id) {
+                        showNotificationToast('رسالة جديدة', `${lastMsg.senderName}: ${lastMsg.message.substring(0, 50)}`, 'info');
+                        playNotificationSound();
+                    }
+                }
+            }));
+            
+            // استماع للإشعارات
+            unsubscribeFunctions.push(db.collection('broadcasts').orderBy('createdAt', 'desc').onSnapshot(snap => { 
+                const newNotifications = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })); 
+                checkForNewNotifications(newNotifications); 
+                allNotifications = newNotifications.sort((a, b) => b.createdAt - a.createdAt); 
+                updateNotificationBadge(); 
+            }));
+        }
+        
+        let windowChatModalOpen = false;
+        
+        function checkForNewNotifications(newNotifications) { 
+            if(lastNotificationCount === 0) { lastNotificationCount = newNotifications.length; return; } 
+            if(newNotifications.length > lastNotificationCount) { 
+                const newNotif = newNotifications[0]; 
+                showNotificationToast(newNotif.title || 'تعميم جديد', newNotif.message, 'broadcast'); 
+                playNotificationSound(); 
+                lastNotificationCount = newNotifications.length; 
+            } 
+        }
+        
+        function checkForRequestStatusChanges(currentRequests) { 
+            const savedRequests = JSON.parse(localStorage.getItem('saved_requests') || '[]'); 
+            currentRequests.forEach(req => { 
+                const savedReq = savedRequests.find(r => r.id === req.id); 
+                if(savedReq && savedReq.status !== req.status) { 
+                    const statusText = req.status === 'approved' ? 'تم قبول الطلب' : (req.status === 'rejected' ? 'تم رفض الطلب' : 'تحديث الطلب'); 
+                    const message = `${statusText}\nالعضو: ${req.memberName}\nالقيمة: ${req.amount}`; 
+                    showNotificationToast('تحديث الطلب', message, req.status === 'approved' ? 'success' : 'error'); 
+                    playNotificationSound(); 
+                } 
+            }); 
+            localStorage.setItem('saved_requests', JSON.stringify(currentRequests)); 
+        }
+        
+        function switchTab(tab) { 
+            currentTab = tab; 
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); 
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active')); 
+            const map = { 'members': 0, 'reports': 1, 'requests': 2, 'notes': 3 }; 
+            if(map[tab] !== undefined) { 
+                document.querySelectorAll('.tab-btn')[map[tab]].classList.add('active'); 
+                document.querySelectorAll('.nav-item')[map[tab]].classList.add('active'); 
+            } 
+            searchTerm = ''; 
+            const searchInput = document.getElementById('searchInput');
+            if(searchInput) searchInput.value = '';
+            if(tab === 'members') renderMembers(); 
+            else if(tab === 'reports') renderReports(); 
+            else if(tab === 'requests') renderRequests(); 
+            else if(tab === 'notes') renderMemberNotes(); 
+            else if(tab === 'notebook') renderNotebook(); 
+        }
+        
+        function handleSearch(val) { searchTerm = val.toLowerCase(); 
+            if(currentTab === 'members') renderMembers(); 
+            else if(currentTab === 'reports') renderReports(); 
+            else if(currentTab === 'requests') renderRequests(); 
+            else if(currentTab === 'notes') renderMemberNotes(); 
+            else if(currentTab === 'notebook') filterNotes(); 
+        }
+        
+        function renderMembers() { 
+            const c = document.getElementById('contentArea'), f = members.filter(m => m.name.toLowerCase().includes(searchTerm) || (m.phone && m.phone.includes(searchTerm))); 
+            if(!c) return;
+            if(f.length === 0) { c.innerHTML = '<div class="empty-state">لا يوجد أعضاء</div>'; return; } 
+            c.innerHTML = f.map(m => { 
+                const target = parseFloat(m.target) || 0, wallet = parseFloat(m.wallet) || 0, difference = wallet - target, isAchieved = wallet >= target; 
+                return `<div class="card"><div class="card-header"><span class="card-title">${escapeHtml(m.name)}</span><span class="card-amount">${wallet}</span></div><div class="card-sub">الهاتف: ${m.phone || '-'}</div><div class="member-info-section"><div class="member-info-row"><span class="member-info-label">الهدف:</span><span class="member-info-value goal-value">${target}</span></div><div class="member-info-row"><span class="member-info-label">الفارق:</span><span class="difference-value ${isAchieved ? 'achieved' : ''}">${isAchieved ? '+' : ''}${difference}</span></div></div><div class="ref-actions"><button class="ref-btn ref-btn-view" onclick="viewMemberOps('${m.id}')"><i class="fas fa-history"></i> العمليات</button><button class="ref-btn ref-btn-wa" onclick="shareMemberWallet('${m.id}')"><i class="fab fa-whatsapp"></i> واتساب</button><button class="ref-btn ref-btn-copy" style="background:#fff3e0; color:#e65100;" onclick="openRequestModal('${m.id}')"><i class="fas fa-paper-plane"></i> طلب</button><button class="ref-btn ref-btn-note" onclick="openMemberNoteModal('${m.id}')"><i class="fas fa-sticky-note"></i> ملاحظة</button></div></div>`; 
+            }).join(''); 
+        }
+        
+        function renderReports() { 
+            const c = document.getElementById('contentArea'), f = reports.filter(r => (r.ref || '').toLowerCase().includes(searchTerm) || (r.date || '').includes(searchTerm)); 
+            if(!c) return;
+            if(f.length === 0) { c.innerHTML = '<div class="empty-state">لا توجد تقارير</div>'; return; } 
+            c.innerHTML = f.map(r => `<div class="card"><div class="card-header"><span class="card-title">${escapeHtml(r.ref || 'RPT')}</span><span class="status-badge status-approved">تم الإرسال</span></div><div class="card-sub">التاريخ: ${r.date} | المهام: ${r.maxTasks}</div>${r.note ? `<div style="font-size:10px; color:#666; margin-top:5px; background:#f9f9f9; padding:5px; border-radius:5px;">ملاحظة: ${escapeHtml(r.note)}</div>` : ''}<div class="ref-actions"><button class="ref-btn ref-btn-copy" onclick="copyToClipboard('${r.ref}')"><i class="fas fa-copy"></i> نسخ</button><button class="ref-btn ref-btn-view" onclick="viewReportDetails('${r.id}')"><i class="fas fa-eye"></i> عرض</button><button class="ref-btn ref-btn-wa" onclick="shareReportWhatsAppById('${r.id}')"><i class="fab fa-whatsapp"></i> واتساب</button></div></div>`).join(''); 
+        }
+        
+        function renderRequests() { 
+            const c = document.getElementById('contentArea'), f = requests.filter(r => r.memberName.toLowerCase().includes(searchTerm) || (r.ref || '').toLowerCase().includes(searchTerm)); 
+            if(!c) return;
+            if(f.length === 0) { c.innerHTML = '<div class="empty-state">لا توجد طلبات</div>'; return; } 
+            c.innerHTML = f.map(r => `<div class="card" style="border-right-color: ${r.status === 'pending' ? '#ffa502' : (r.status === 'approved' ? '#25D366' : '#ff4757')};"><div class="card-header"><span class="card-title">${escapeHtml(r.memberName)}</span><span class="status-badge status-${r.status}">${r.status === 'pending' ? 'قيد الانتظار' : (r.status === 'approved' ? 'تم القبول' : 'مرفوض')}</span></div><div class="card-sub">العملية: ${r.operationType === 'add' ? 'إضافة' : 'خصم'} | القيمة: ${r.amount}</div><div style="margin-top:5px; background:#f9f9f9; padding:5px; border-radius:8px; font-size:11px;">السبب: ${escapeHtml(r.reason)}</div><div class="ref-actions"><button class="ref-btn ref-btn-copy" onclick="copyToClipboard('${r.ref}')"><i class="fas fa-copy"></i> نسخ</button><button class="ref-btn ref-btn-wa" onclick="shareRequestWhatsApp('${r.id}')"><i class="fab fa-whatsapp"></i> واتساب</button></div></div>`).join(''); 
+        }
+        
+        function renderMemberNotes() { 
+            const c = document.getElementById('contentArea'), f = memberNotes.filter(n => n.memberName.toLowerCase().includes(searchTerm) || (n.ref || '').toLowerCase().includes(searchTerm) || n.type.toLowerCase().includes(searchTerm)); 
+            if(!c) return;
+            if(f.length === 0) { c.innerHTML = '<div class="empty-state">لا توجد ملاحظات</div>'; return; } 
+            c.innerHTML = f.map(n => `<div class="note-card" style="border-right-color: ${n.type === 'مخالفة' ? '#ff4757' : (n.type === 'مكافأة' ? '#25D366' : '#f39c12')};"><div class="note-header"><span class="note-title">${escapeHtml(n.memberName)}</span><span class="note-time">${new Date(n.createdAt).toLocaleDateString('ar-SA')}</span></div><div style="font-size:11px; color:#666; margin-bottom:5px;"><strong>النوع:</strong> ${escapeHtml(n.type)} | <strong>المرجع:</strong> ${n.ref}</div><div style="font-size:11px; color:#555; background:#f9f9f9; padding:8px; border-radius:8px; margin-bottom:5px;">التفاصيل: ${escapeHtml(n.details)}</div>${n.adminNote ? `<div style="font-size:10px; color:#666; background:#fff3e0; padding:8px; border-radius:8px;">ملاحظة الإدارة: ${escapeHtml(n.adminNote)}</div>` : ''}<div style="margin-top:8px; display:flex; gap:8px;"><button class="ref-btn ref-btn-copy" onclick="copyToClipboard('${n.ref}')"><i class="fas fa-copy"></i> نسخ</button><button class="ref-btn ref-btn-wa" onclick="shareMemberNoteWhatsApp('${n.id}')"><i class="fab fa-whatsapp"></i> واتساب</button></div></div>`).join(''); 
+        }
+        
+        function renderNotebook() { 
+            const c = document.getElementById('contentArea'); 
+            if(!c) return;
+            let h = `<div style="padding:15px;"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;"><h3 style="color:#f39c12; font-size:16px;">المذكرة الشخصية</h3><button class="note-btn" style="background:#f39c12; color:white; padding:6px 12px;" onclick="openNoteModal()"><i class="fas fa-plus"></i> إضافة</button></div><div style="margin-bottom:12px;"><input type="text" id="noteSearchInput" class="search-input" placeholder="بحث في الملاحظات..." oninput="filterNotes()"></div><div id="notesList">`; 
+            if(myNotes.length === 0) h += '<div class="empty-state">لا توجد ملاحظات</div>'; 
+            else { 
+                const filtered = myNotes.filter(n => n.title.toLowerCase().includes(searchTerm) || n.content.toLowerCase().includes(searchTerm)); 
+                if(filtered.length === 0) h += '<div class="empty-state">لا توجد نتائج بحث</div>'; 
+                else [...filtered].sort((a,b)=>b.id-a.id).forEach(n => { 
+                    h += `<div class="note-card"><div class="note-header"><span class="note-title">${escapeHtml(n.title || 'ملاحظة')} ${n.reminder ? '🔔' : ''}</span><span class="note-time">${new Date(n.id).toLocaleString('ar-SA')}</span></div><div class="note-body">${escapeHtml(n.content)}</div><div class="note-actions"><button class="note-btn note-btn-edit" onclick="openNoteModal('${n.id}')">تعديل</button><button class="note-btn note-btn-del" onclick="deleteNote('${n.id}')">حذف</button></div></div>`; 
+                }); 
+            } 
+            c.innerHTML = h + `</div></div>`; 
+        }
+        
+        function filterNotes() { 
+            const input = document.getElementById('noteSearchInput'); 
+            const term = input ? input.value.toLowerCase() : ''; 
+            const filtered = myNotes.filter(n => n.title.toLowerCase().includes(term) || n.content.toLowerCase().includes(term)); 
+            const list = document.getElementById('notesList'); 
+            if(!list) return;
+            if(filtered.length === 0) { list.innerHTML = '<div class="empty-state">لا توجد نتائج بحث</div>'; return; } 
+            list.innerHTML = [...filtered].sort((a,b)=>b.id-a.id).map(n => `<div class="note-card"><div class="note-header"><span class="note-title">${escapeHtml(n.title || 'ملاحظة')} ${n.reminder ? '🔔' : ''}</span><span class="note-time">${new Date(n.id).toLocaleString('ar-SA')}</span></div><div class="note-body">${escapeHtml(n.content)}</div><div class="note-actions"><button class="note-btn note-btn-edit" onclick="openNoteModal('${n.id}')">تعديل</button><button class="note-btn note-btn-del" onclick="deleteNote('${n.id}')">حذف</button></div></div>`).join(''); 
+        }
+        
+        function openNoteModal(id=null) { 
+            if(id) { 
+                const n = myNotes.find(x => x.id == id); 
+                if(n) {
+                    document.getElementById('editNoteId').value = id; 
+                    document.getElementById('noteTitle').value = n.title || ''; 
+                    document.getElementById('noteContent').value = n.content || ''; 
+                    document.getElementById('noteReminder').value = n.reminder || ''; 
+                }
+            } else { 
+                document.getElementById('editNoteId').value = ''; 
+                document.getElementById('noteTitle').value = ''; 
+                document.getElementById('noteContent').value = ''; 
+                document.getElementById('noteReminder').value = ''; 
+            } 
+            openModal('noteEditModal'); 
+        }
+        
+        function saveNote() { 
+            const id = document.getElementById('editNoteId').value, t = document.getElementById('noteTitle').value.trim(), c = document.getElementById('noteContent').value.trim(), r = document.getElementById('noteReminder').value; 
+            if(!c) return showCustomDialog('تنبيه', 'المحتوى مطلوب', 'warning', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]); 
+            if(id) { 
+                const i = myNotes.findIndex(x => x.id == id); 
+                if(i !== -1) myNotes[i] = { ...myNotes[i], title: t, content: c, reminder: r, notified: false }; 
+            } else myNotes.push({ id: Date.now(), title: t, content: c, reminder: r, notified: false }); 
+            localStorage.setItem('wss_notes', JSON.stringify(myNotes)); 
+            closeModal('noteEditModal'); 
+            renderNotebook(); 
+            showToast("تم الحفظ"); 
+        }
+        
+        function deleteNote(id) { 
+            showCustomDialog('تأكيد', 'هل تريد حذف هذه الملاحظة؟', 'warning', [
+                { text: 'إلغاء', callback: () => { closeCustomDialog(); } }, 
+                { text: 'حذف', callback: () => { myNotes = myNotes.filter(x => x.id != id); localStorage.setItem('wss_notes', JSON.stringify(myNotes)); renderNotebook(); closeCustomDialog(); }, isPrimary: true }
+            ]); 
+        }
+        
+        function startReminderCheck() { 
+            setInterval(() => { 
+                const now = Date.now(); 
+                myNotes.forEach(n => { 
+                    if(n.reminder && !n.notified) { 
+                        const rem = new Date(n.reminder).getTime(); 
+                        if(now >= rem) { 
+                            showNotificationToast('تذكير', n.title || 'ملاحظة شخصية', 'info'); 
+                            n.notified = true; 
+                            localStorage.setItem('wss_notes', JSON.stringify(myNotes)); 
+                        } 
+                    } 
+                }); 
+            }, 60000); 
+        }
+        
+        function openReportModal() {
+            const today = new Date().toISOString().split('T')[0];
+            const lastCreationDate = localStorage.getItem('lastReportCreationDate_' + (currentUser?.id || ''));
+            
+            if(lastCreationDate === today) {
+                showCustomDialog('تنبيه', 'لا يمكنك إنشاء أكثر من تقرير واحد في اليوم الواحد.', 'warning', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]);
+                return;
+            }
+            
+            const existsToday = reports.some(r => r.date === today);
+            if(existsToday) { 
+                showCustomDialog('تنبيه', 'تقرير لهذا التاريخ موجود بالفعل', 'warning', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]); 
+                return; 
+            }
+            
+            document.getElementById('reportDate').value = today; 
+            document.getElementById('reportMaxTasks').value = ""; 
+            document.getElementById('reportNote').value = "";
+            const membersListDiv = document.getElementById('reportMembersList');
+            if(membersListDiv) {
+                membersListDiv.innerHTML = members.map(m => `<div class="member-row" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 10px;"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="font-size:12px; font-weight:700;">${escapeHtml(m.name)} <span style="font-weight:400; color:#888;">(رصيد: ${m.wallet})</span></span><select id="type-${m.id}" style="padding:4px; font-size:11px; width: 80px;"><option value="add">إضافة</option><option value="subtract">خصم</option></select></div><div style="display:flex; gap:8px;"><input type="number" id="amt-${m.id}" placeholder="القيمة" value="" style="flex:1; padding:6px; font-size:11px;"><input type="text" id="note-${m.id}" placeholder="ملاحظة العضو" style="flex:1.5; padding:6px; font-size:11px;"></div></div>`).join('');
+            }
+            openModal('reportModal');
+        }
+        
+        async function submitReport() {
+            if(isProcessing) return;
+            const d = document.getElementById('reportDate').value, mValue = document.getElementById('reportMaxTasks').value, n = document.getElementById('reportNote').value.trim();
+            if(!d || mValue === '') return showCustomDialog('تنبيه', 'بيانات ناقصة', 'warning', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]);
+            
+            const today = new Date().toISOString().split('T')[0];
+            const lastCreationDate = localStorage.getItem('lastReportCreationDate_' + currentUser.id);
+            if(lastCreationDate === today) {
+                showCustomDialog('تنبيه', 'لا يمكنك إنشاء أكثر من تقرير واحد في اليوم الواحد.', 'warning', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]);
+                return;
+            }
+            
+            const maxTasks = parseInt(mValue) || 0;
+            const existsToday = reports.some(r => r.date === d);
+            if(existsToday) { showCustomDialog('تنبيه', 'تقرير لهذا التاريخ موجود بالفعل', 'warning', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]); return; }
+            
+            const ups = []; toggleLoading('submitReportBtn', true);
+            try {
+                const batch = db.batch();
+                for(const mem of members) {
+                    const amtValue = document.getElementById(`amt-${mem.id}`)?.value;
+                    const memberNote = document.getElementById(`note-${mem.id}`)?.value.trim() || '';
+                    if(amtValue && amtValue.toString().trim() !== '') {
+                        const amountNumeric = parseInt(amtValue) || 0;
+                        const operationType = document.getElementById(`type-${mem.id}`)?.value || 'add';
+                        const currentWallet = mem.wallet || 0;
+
+                        if(amountNumeric > maxTasks) {
+                            throw new Error(`غير مسموح: القيمة المدخلة للعضو (${mem.name}) أكبر من عدد المهام الكلي (${maxTasks}).`);
+                        }
+                        if(operationType === 'subtract' && amountNumeric > currentWallet) {
+                            throw new Error(`غير مسموح: رصيد محفظة العضو (${mem.name}) هو (${currentWallet})، لا يمكن خصم (${amountNumeric}).`);
+                        }
+
+                        let newWallet = currentWallet;
+                        if(operationType === 'add') newWallet = currentWallet + amountNumeric;
+                        else if(operationType === 'subtract') newWallet = currentWallet - amountNumeric;
+                        
+                        ups.push({ memberId: mem.id, memberName: mem.name, amount: amountNumeric, type: operationType, oldWallet: currentWallet, newWallet: newWallet, memberNote: memberNote });
+                        batch.update(db.collection('members').doc(mem.id), { wallet: newWallet });
+                    }
+                }
+                if(ups.length === 0) { showCustomDialog('تنبيه', 'لا يوجد تحديثات للأعضاء', 'warning', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]); toggleLoading('submitReportBtn', false); return; }
+                const rRef = db.collection('dailyReports').doc();
+                batch.set(rRef, { ref: 'RPT-' + Date.now().toString().slice(-6), date: d, maxTasks: maxTasks, note: n, group: currentUser.groupName, supervisor: currentUser.name, supervisorId: currentUser.id, updates: ups, createdAt: Date.now() });
+                await batch.commit(); 
+                
+                localStorage.setItem('lastReportCreationDate_' + currentUser.id, today);
+                
+                showNotificationToast('تم الحفظ', 'تم حفظ التقرير بنجاح', 'success'); 
+                playNotificationSound(); 
+                closeModal('reportModal'); 
+                switchTab('reports');
+            } catch(e) { showCustomDialog('تنبيه', e.message, 'warning', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]); }
+            toggleLoading('submitReportBtn', false);
+        }
+        
+        async function submitSpecialRequest() {
+            const amtValue = document.getElementById('reqAmount').value, type = document.getElementById('reqType').value, reason = document.getElementById('reqReason').value.trim();
+            if(amtValue === '' || !reason) return showCustomDialog('تنبيه', 'بيانات ناقصة', 'warning', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]);
+            const amountNumeric = parseInt(amtValue) || 0;
+            const currentWallet = selectedMemberForReq?.wallet || 0;
+
+            if(type === 'subtract' && amountNumeric > currentWallet) {
+                return showCustomDialog('تنبيه', `غير مسموح: رصيد محفظة العضو (${selectedMemberForReq?.name}) هو (${currentWallet})، لا يمكن طلب خصم (${amountNumeric}).`, 'warning', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]);
+            }
+
+            toggleLoading('submitRequestBtn', true);
+            try {
+                await db.collection('specialRequests').add({ ref: 'REQ-' + Date.now().toString().slice(-6), memberId: selectedMemberForReq.id, memberName: selectedMemberForReq.name, amount: amountNumeric, operationType: type, reason, status: 'pending', supervisorId: currentUser.id, supervisorName: currentUser.name, groupId: currentUser.groupId, createdAt: Date.now() });
+                showNotificationToast('تم الإرسال', 'تم إرسال الطلب للإدارة', 'success'); playNotificationSound(); closeModal('requestModal'); switchTab('requests');
+            } catch(e) { showCustomDialog('خطأ', 'فشل الإرسال', 'error', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]); }
+            toggleLoading('submitRequestBtn', false);
+        }
+        
+        function openMemberNoteModal(id) { selectedMemberForNote = members.find(m => m.id === id); if(!selectedMemberForNote) return; document.getElementById('noteMemberName').value = selectedMemberForNote.name; document.getElementById('noteType').value = ''; document.getElementById('noteDetails').value = ''; openModal('memberNoteModal'); }
+        
+        async function submitMemberNote() {
+            const type = document.getElementById('noteType').value, details = document.getElementById('noteDetails').value.trim();
+            if(!type || !details) return showCustomDialog('تنبيه', 'بيانات ناقصة', 'warning', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]);
+            toggleLoading('submitNoteBtn', true);
+            try {
+                await db.collection('memberNotes').add({ ref: 'NOTE-' + Date.now().toString().slice(-6), memberId: selectedMemberForNote.id, memberName: selectedMemberForNote.name, type, details, status: 'pending', supervisorId: currentUser.id, supervisorName: currentUser.name, groupId: currentUser.groupId, createdAt: Date.now() });
+                showNotificationToast('تم التسجيل', 'تم تسجيل الملاحظة بنجاح', 'success'); playNotificationSound(); closeModal('memberNoteModal'); switchTab('notes');
+            } catch(e) { showCustomDialog('خطأ', 'فشل التسجيل', 'error', [{ text: 'حسناً', callback: () => { closeCustomDialog(); } }]); }
+            toggleLoading('submitNoteBtn', false);
+        }
+        
+        // =============== وظائف الدردشة (تم إصلاحها) ===============
+        function openChat() { 
+            window.chatModalOpen = true;
+            renderChatMessages(); 
+            openModal('chatModal'); 
+        }
+        
+        function renderChatMessages() {
+            const chatBox = document.getElementById('chatBox'); 
+            if(!chatBox) return;
+            if(!chats || chats.length === 0) { 
+                chatBox.innerHTML = '<div class="empty-state"><i class="fas fa-comment-dots"></i><br>لا توجد رسائل بعد<br>كن أول من يرسل رسالة</div>'; 
+                return; 
+            }
+            chatBox.innerHTML = chats.map(c => { 
+                const isMine = c.senderId === currentUser?.id; 
+                const timeDisplay = formatChatTime(c.timestamp);
+                return `<div class="chat-bubble ${isMine ? 'chat-mine' : 'chat-other'}">
+                            <div style="font-weight:800; font-size:10px; color:var(--primary-dark); margin-bottom:2px;">${escapeHtml(c.senderName || 'مستخدم')}</div>
+                            <div>${escapeHtml(c.message)}</div>
+                            <div class="chat-info"><span>${timeDisplay}</span></div>
+                        </div>`; 
+            }).join('');
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        
+        function formatChatTime(timestamp) {
+            if(!timestamp) return 'الآن';
+            const now = Date.now();
+            const diff = now - timestamp;
+            const seconds = Math.floor(diff / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            
+            if (seconds < 60) return 'الآن';
+            if (minutes < 60) return `منذ ${minutes} دقيقة`;
+            if (hours < 24) return `منذ ${hours} ساعة`;
+            if (days < 7) return `منذ ${days} يوم`;
+            return new Date(timestamp).toLocaleDateString('ar-SA', { day: 'numeric', month: 'numeric' });
+        }
+        
+        async function sendChatMessage() { 
+            const input = document.getElementById('chatInput'); 
+            const message = input?.value.trim(); 
+            if(!message) {
+                showToast('الرجاء كتابة رسالة');
+                return;
+            }
+            if(!currentUser) {
+                showToast('الرجاء تسجيل الدخول أولاً');
+                return;
+            }
+            input.value = '';
+            input.disabled = true;
+            try {
+                await db.collection('chats').add({ 
+                    groupId: currentUser.groupId, 
+                    senderId: currentUser.id, 
+                    senderName: currentUser.name, 
+                    message: message, 
+                    timestamp: Date.now() 
+                });
+                showToast('تم الإرسال');
+            } catch(e) { 
+                console.error('خطأ في الإرسال:', e);
+                showToast('فشل الإرسال', true); 
+                input.value = message;
+            } finally {
+                input.disabled = false;
+                input.focus();
+            }
+        }
+        // ======================================================
+        
+        function updateNotificationBadge() { 
+            const unreadCount = allNotifications.length; 
+            const b = document.getElementById('notifBadge'); 
+            if(b) {
+                if(unreadCount > 0) { b.innerText = unreadCount > 99 ? '99+' : unreadCount; b.style.display = 'block'; } 
+                else b.style.display = 'none'; 
+            }
+        }
+        
+        function renderNotificationsList() { 
+            const list = document.getElementById('notifList'); 
+            if(!list) return;
+            if(allNotifications.length === 0) { list.innerHTML = '<div class="empty-state">لا توجد إشعارات</div>'; return; } 
+            const displayList = allNotifications.slice(0, notificationOffset + notificationsPerPage); 
+            list.innerHTML = displayList.map(n => `<div class="notification-item" onclick="showNotificationDetails('${n.id}', '${escapeHtml(n.title)}', '${escapeHtml(n.message)}')"><div class="notification-item-title">${escapeHtml(n.title)}</div><div class="notification-item-msg">${escapeHtml(n.message)}</div><div class="notification-item-time">${new Date(n.createdAt).toLocaleString('ar-SA')}</div></div>`).join(''); 
+            const loadBtn = document.getElementById('loadMoreNotifBtn');
+            if(loadBtn) loadBtn.style.display = allNotifications.length > displayList.length ? 'block' : 'none';
+        }
+        
+        function loadMoreNotifications() { notificationOffset += notificationsPerPage; renderNotificationsList(); }
+        
+        function openNotificationsPanel() { notificationOffset = 0; renderNotificationsList(); openModal('notificationsModal'); }
+        
+        function showNotificationDetails(id, title, message) { 
+            const popupContent = document.getElementById('popupContent');
+            if(popupContent) popupContent.innerHTML = `<h4 style="color: var(--primary-dark); margin-bottom: 10px;">${title}</h4><p>${message}</p>`; 
+            document.getElementById('notificationPopupOverlay')?.classList.add('show'); 
+            document.getElementById('notificationPopup')?.classList.add('show'); 
+        }
+        
+        function closeNotificationPopup() { 
+            document.getElementById('notificationPopupOverlay')?.classList.remove('show'); 
+            document.getElementById('notificationPopup')?.classList.remove('show'); 
+        }
+        
+        function showNotificationToast(title, message, type = 'success') { 
+            const toast = document.createElement('div'); 
+            toast.className = 'notification-toast'; 
+            if(type === 'broadcast') toast.classList.add('broadcast-notification');
+            let icon = '<i class="fas fa-check-circle"></i>', iconColor = 'var(--primary)'; 
+            if(type === 'success') { icon = '<i class="fas fa-check-circle"></i>'; iconColor = 'var(--primary)'; } 
+            else if(type === 'error') { icon = '<i class="fas fa-times-circle"></i>'; iconColor = 'var(--danger)'; } 
+            else if(type === 'broadcast') { icon = '<i class="fas fa-bullhorn"></i>'; iconColor = '#ffd700'; } 
+            else { icon = '<i class="fas fa-info-circle"></i>'; iconColor = 'var(--accent)'; } 
+            toast.innerHTML = `<div class="notif-content"><div class="notif-icon" style="color: ${iconColor};">${icon}</div><div class="notif-text"><div class="notif-title">${escapeHtml(title)}</div><div class="notif-message">${escapeHtml(message)}</div><div class="notif-time">الآن</div></div><button class="notif-close" onclick="this.parentElement.parentElement.remove()"><i class="fas fa-times"></i></button></div>`; 
+            document.body.appendChild(toast); 
+            setTimeout(() => { 
+                if(toast.parentElement) { 
+                    toast.classList.add('slide-out'); 
+                    setTimeout(() => { if(toast.parentElement) toast.remove(); }, 500); 
+                } 
+            }, 4000); 
+        }
+        
+        function viewReportDetails(id) { const r = reports.find(x => x.id === id); if(!r) return; 
+            const content = `<h3 style="color:var(--primary-dark); margin-bottom:10px;">تقرير: ${escapeHtml(r.ref)}</h3><div style="background:#f8f9fa; padding:10px; border-radius:12px;"><p><strong>التاريخ:</strong> ${r.date}</p><p><strong>القروب:</strong> ${r.group}</p><p><strong>عدد المهام:</strong> ${r.maxTasks}</p>${r.note ? `<p><strong>الملاحظة:</strong> ${escapeHtml(r.note)}</p>` : ''}</div><div style="margin-top:10px;"><strong>المهام:</strong><table style="width:100%; margin-top:8px; border-collapse:collapse;"><thead><tr style="background:#f0f0f0;"><th style="padding:6px; border:1px solid #ddd;">العضو</th><th style="padding:6px; border:1px solid #ddd;">العملية</th><th style="padding:6px; border:1px solid #ddd;">القيمة</th></tr></thead><tbody>${(r.updates || []).map(u => `<tr><td style="padding:6px; border:1px solid #ddd;">${escapeHtml(u.memberName)}</td><td style="padding:6px; border:1px solid #ddd;">${u.type === 'add' ? 'إضافة' : 'خصم'}</td><td style="padding:6px; border:1px solid #ddd;">${u.amount}</td></tr>`).join('')}</tbody></table></div>`; 
+            document.getElementById('detailsContent').innerHTML = content; 
+            document.getElementById('shareReportBtn').onclick = () => shareReportWhatsApp(r); 
+            openModal('detailsModal'); 
+        }
+        
+        async function viewMemberOps(id) { 
+            const m = members.find(x => x.id === id); 
+            const c = document.getElementById('contentArea'); 
+            if(!c) return;
+            c.innerHTML = '<div class="empty-state">جاري التحميل...</div>'; 
+            const ops = []; 
+            reports.forEach(r => (r.updates || []).forEach(u => { if(u.memberId === id) ops.push({ ...u, date: r.date, ref: r.ref, createdAt: r.createdAt }); })); 
+            requests.filter(req => req.memberId === id && req.status === 'approved').forEach(req => ops.push({ memberName: req.memberName, type: req.operationType, amount: req.amount, date: new Date(req.approvedAt || req.createdAt).toISOString().split('T')[0], ref: req.ref, createdAt: req.approvedAt || req.createdAt, note: 'طلب: ' + req.reason })); 
+            ops.sort((a,b)=>b.createdAt - a.createdAt); 
+            let h = `<div style="padding:10px; background:white; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;"><strong style="color:var(--primary-dark);">${escapeHtml(m?.name)}</strong><button class="btn-ops" style="padding:3px 10px; border-radius:15px; border:none;" onclick="switchTab('members')">رجوع</button></div>`; 
+            if(ops.length === 0) h += '<div class="empty-state">لا توجد عمليات</div>'; 
+            else h += ops.map(o => `<div class="card" style="border-right-color: ${o.type === 'add' ? '#25D366' : '#ff4757'};"><div class="card-header"><span style="font-weight:800;">${o.type === 'add' ? '➕' : '➖'} ${o.amount}</span><span style="font-size:9px; color:#888;">${o.date}</span></div><div style="font-size:10px;">المرجع: ${o.ref}</div>${o.memberNote ? `<div style="font-size:10px;">ملاحظة: ${escapeHtml(o.memberNote)}</div>` : ''}</div>`).join(''); 
+            c.innerHTML = h; 
+        }
+        
+        function shareReportWhatsApp(r) { 
+            let t = `*تقرير WSS.APP*\nالمرجع: ${r.ref}\nالتاريخ: ${r.date}\nالمهام: ${r.maxTasks}\n` + r.updates.map(u => `- ${u.memberName}: ${u.type === 'add' ? '+' : '-'}${u.amount}`).join('\n'); 
+            window.open(`https://wa.me/?text=${encodeURIComponent(t)}`, '_blank'); 
+        }
+        
+        function shareReportWhatsAppById(id) { const r = reports.find(x => x.id === id); if(r) shareReportWhatsApp(r); }
+        
+        function shareMemberWallet(id) { const m = members.find(x => x.id === id); if(!m) return; 
+            let t = `*محفظة WSS.APP*\nالاسم: ${m.name}\nالرصيد: ${m.wallet || 0}\nالهدف: ${m.target || 0}`; 
+            window.open(`https://wa.me/${m.phone ? m.phone.replace(/\D/g, '') : ''}?text=${encodeURIComponent(t)}`, '_blank'); 
+        }
+        
+        function shareRequestWhatsApp(id) { const r = requests.find(x => x.id === id); if(!r) return; 
+            let t = `*طلب WSS.APP*\nالمرجع: ${r.ref}\nالعضو: ${r.memberName}\nالحالة: ${r.status}`; 
+            window.open(`https://wa.me/?text=${encodeURIComponent(t)}`, '_blank'); 
+        }
+        
+        function shareMemberNoteWhatsApp(id) { const n = memberNotes.find(x => x.id === id); if(!n) return; 
+            let t = `*ملاحظة WSS.APP*\nالمرجع: ${n.ref}\nالعضو: ${n.memberName}\nالنوع: ${n.type}`; 
+            window.open(`https://wa.me/?text=${encodeURIComponent(t)}`, '_blank'); 
+        }
+        
+        function copyToClipboard(t) { navigator.clipboard.writeText(t).then(() => showToast("تم النسخ")); }
+        
+        function playNotificationSound() { 
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBg=='); 
+                audio.play().catch(e => console.log('صوت:', e));
+            } catch(e) {}
+        }
+        
+        function toggleLoading(id, l) { 
+            isProcessing = l; 
+            const b = document.getElementById(id); 
+            if(b) { 
+                b.disabled = l; 
+                if(l) { b.dataset.old = b.innerHTML; b.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; } 
+                else b.innerHTML = b.dataset.old || b.innerHTML; 
+            } 
+        }
+        
+        function showToast(m, e=false) { 
+            const t = document.createElement('div'); 
+            t.className = 'toast'; 
+            t.style.background = e ? 'var(--danger)' : '#333'; 
+            t.innerText = m; 
+            document.body.appendChild(t); 
+            setTimeout(() => t.remove(), 3000); 
+        }
+        
+        function showCustomDialog(title, message, type = 'info', buttons = []) { 
+            const dialog = document.getElementById('customDialog'), iconEl = document.getElementById('dialogIcon'), titleEl = document.getElementById('dialogTitle'), msgEl = document.getElementById('dialogMessage'), btnContainer = document.getElementById('dialogButtons'); 
+            if(!dialog) return;
+            iconEl.className = 'custom-dialog-icon ' + type; 
+            if(type === 'success') iconEl.innerHTML = '<i class="fas fa-check-circle"></i>'; 
+            else if(type === 'error') iconEl.innerHTML = '<i class="fas fa-times-circle"></i>'; 
+            else if(type === 'warning') iconEl.innerHTML = '<i class="fas fa-exclamation-circle"></i>'; 
+            else iconEl.innerHTML = '<i class="fas fa-info-circle"></i>'; 
+            titleEl.innerText = title; 
+            msgEl.innerText = message; 
+            btnContainer.innerHTML = buttons.map((btn, idx) => `<button id="dialogBtn_${idx}" class="custom-dialog-btn ${btn.isPrimary ? 'custom-dialog-btn-primary' : 'custom-dialog-btn-secondary'}">${btn.text}</button>`).join(''); 
+            buttons.forEach((btn, idx) => { 
+                const btnEl = document.getElementById('dialogBtn_' + idx); 
+                if(btnEl) btnEl.onclick = () => { if(btn.callback) btn.callback(); }; 
+            }); 
+            dialog.style.display = 'flex'; 
+        }
+        
+        function closeCustomDialog() { const d = document.getElementById('customDialog'); if(d) d.style.display = 'none'; }
+        
+        function escapeHtml(s) { if(!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        
+        function openModal(id) { const m = document.getElementById(id); if(m) m.style.display = 'flex'; }
+        
+        function closeModal(id) { const m = document.getElementById(id); if(m) m.style.display = 'none'; if(id === 'chatModal') window.chatModalOpen = false; }
+        
+        function openRequestModal(id) { selectedMemberForReq = members.find(x => x.id === id); if(!selectedMemberForReq) return; document.getElementById('reqMemberName').value = selectedMemberForReq.name; document.getElementById('reqAmount').value = ""; openModal('requestModal'); }
+        
+        function printContent() { window.print(); }
+    </script>
+</body>
+</html>
